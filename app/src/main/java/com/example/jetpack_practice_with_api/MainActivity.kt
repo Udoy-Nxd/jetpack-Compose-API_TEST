@@ -2,7 +2,6 @@ package com.example.jetpack_practice_with_api
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -11,8 +10,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,11 +27,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,12 +40,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
 import com.example.jetpack_practice_with_api.data.model.Post
 import com.example.jetpack_practice_with_api.utils.Resource
 import com.example.jetpack_practice_with_api.viewmodel.MainActivityViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -62,74 +58,41 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun MainBody() {
         val viewModel: MainActivityViewModel by viewModels()
-        val isLoading: MutableState<Boolean> = mutableStateOf(false)
-        var postItemList: MutableState<List<Post.PostItem>> = mutableStateOf(emptyList())
+        val networkState by viewModel.stateFlow.collectAsState(initial = Resource.Loading)
 
-        LaunchedEffect(key1 = viewModel) {
-            viewModel.fetchFlowData().collect { resource ->
-                when (resource) {
-                    is Resource.Loading -> {
-                        isLoading.value = true
-                        Log.e("TAG", "MainBody: Loading")
-                    }
+        LaunchedEffect(Unit) {
+            viewModel.fetchUsers()
+        }
 
-                    is Resource.Success -> {
-//                        Log.e("TAG", "MainBody: Success")
-//
-//                        Log.e("TAG", "post item: ${postItemList.size}")
-//                        isLoading.value = false
-//                        postItemList = resource.data
-//                        Log.e("TAG", "after api call post item: ${postItemList.size}")
+        when (networkState) {
+            is Resource.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(60.dp)
+                            .padding(12.dp),
+                    )
+                }
+            }
 
-                        Log.e("TAG", "MainBody: Success")
+            is Resource.Success<*> -> {
+                val postItemList = (networkState as Resource.Success<ArrayList<Post.PostItem>>).data
+                LazyColumn {
+                    itemsIndexed(items = postItemList) { index, item ->
+                        MainPage(id = item.id ?: 0, title = item.title ?: "") {
 
-                        isLoading.value = false
-                        postItemList.value = resource.data // Update postItemList using value property
-
-                        Log.e("TAG", "after api call post item: ${postItemList.value.size}")
-
-                    }
-
-                    is Resource.Error -> {
-                        isLoading.value = false
+                        }
                     }
                 }
             }
-        }
 
-        Log.e("TAG", "MainBody: $isLoading")
-//        LazyColumn {
-//            itemsIndexed(items = postItemList) { index, item ->
-//                MainPage(id = item.id ?: 0, title = item.title ?: ""){
-//
-//                }
-//            }
-//        }
-        uiLogic(isLoading, postItemList)
-
-    }
-
-    @Composable
-    fun uiLogic(
-        isLoading: MutableState<Boolean>,
-        postItemList: MutableState<List<Post.PostItem>>
-    ) {
-        if (isLoading.value) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .width(60.dp)
-                    .height(60.dp)
-                    .padding(12.dp)
-            )
-        } else {
-//            Log.e("TAG", "uiLogic: ${postItemList.size}")
-            val postItemList = postItemList.value
-            LazyColumn {
-                itemsIndexed(items = postItemList) { index, item ->
-                    MainPage(id = item.id ?: 0, title = item.title ?: ""){
-
-                    }
-                }
+            is Resource.Error -> {
+                val errorMessage = (networkState as Resource.Error).errorMessage
+                Text(text = errorMessage ?: "Error")
             }
         }
     }
