@@ -23,6 +23,7 @@ class MainActivityViewModel @Inject constructor(
 ):ViewModel() {
 
 
+
 //    val postListValue:ArrayList<Post.PostItem> = arrayListOf()
     var movieListResponse:List<Post.PostItem> by mutableStateOf(listOf())
     var errorMessage: String by mutableStateOf("")
